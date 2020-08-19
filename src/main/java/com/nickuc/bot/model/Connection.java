@@ -161,6 +161,10 @@ public class Connection {
         TimerTask task = new TimerTask() {
             @Override
             public void run() {
+                if (!isConnected()) {
+                    cancel();
+                    return;
+                }
                 consumer.accept(this);
             }
         };
