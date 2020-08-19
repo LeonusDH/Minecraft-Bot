@@ -18,6 +18,7 @@ import com.nickuc.bot.io.packets.game.server.GameDisconnect;
 import com.nickuc.bot.io.packets.game.server.KeepAliveRequest;
 import com.nickuc.bot.io.packets.handshaking.Handshake;
 import com.nickuc.bot.io.packets.login.client.LoginStart;
+import com.nickuc.bot.io.packets.login.server.EncryptionRequest;
 import com.nickuc.bot.io.packets.login.server.LoginDisconnect;
 import com.nickuc.bot.io.packets.login.server.LoginSuccess;
 import com.nickuc.bot.io.packets.login.server.SetCompression;
@@ -205,27 +206,30 @@ public class Connection {
                 listeners.add(new PacketListener() {
                     @Override
                     public void receive(Connection connection, Packet packet) throws Exception {
-                        if (packet instanceof KeepAliveRequest) {
-                            connection.send(new KeepAliveResponse(packet.<KeepAliveRequest>convert().getPayload()));
-                            return;
-                        }
-                        if (packet instanceof SetCompression) {
-                            threshold = packet.convert(SetCompression.class).getThreshold();
-                            return;
-                        }
-                        if (packet instanceof LoginSuccess) {
-                            if (connection.state != Packet.State.LOGIN) {
-                                throw new IllegalStateException("Received LoginSuccess in a invalid state! [" + connection.state + "]");
+                        if (connection.state == Packet.State.GAME) {
+                            if (packet instanceof KeepAliveRequest) {
+                                connection.send(new KeepAliveResponse(packet.<KeepAliveRequest>convert().getPayload()));
+                                return;
                             }
-                            connection.state = Packet.State.GAME;
-                            return;
-                        }
-                        if (packet instanceof LoginDisconnect) {
-                            disconnect(packet.<LoginDisconnect>convert().getJson());
-                            return;
-                        }
-                        if (packet instanceof GameDisconnect) {
-                            disconnect(packet.<GameDisconnect>convert().getJson());
+                            if (packet instanceof GameDisconnect) {
+                                disconnect(packet.<GameDisconnect>convert().getJson());
+                            }
+                        } else {
+                            if (packet instanceof SetCompression) {
+                                threshold = packet.<SetCompression>convert().getThreshold();
+                                return;
+                            }
+                            if (packet instanceof EncryptionRequest) {
+                                disconnect("The server has online mode enabled.");
+                                return;
+                            }
+                            if (packet instanceof LoginSuccess) {
+                                connection.state = Packet.State.GAME;
+                                return;
+                            }
+                            if (packet instanceof LoginDisconnect) {
+                                disconnect(packet.<LoginDisconnect>convert().getJson());
+                            }
                         }
                     }
                 });
