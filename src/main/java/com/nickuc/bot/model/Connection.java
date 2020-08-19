@@ -104,7 +104,7 @@ public class Connection {
     public boolean disconnect(String message) {
         try {
             close();
-            print("Disconnected: " + (message == null ? "Unknown" : message));
+            print(Color.ANSI_RED + "Disconnected: " + (message == null ? "Unknown" : message));
             return true;
         } catch (IOException e) {
             err("Failed to close socket.");
@@ -271,7 +271,7 @@ public class Connection {
             DataInputStream input = new DataInputStream(socket.getInputStream());
             while (isConnected()) {
                 long current = System.currentTimeMillis();
-                if (current - throttle >= 25) {
+                if (current - throttle >= 5) {
                     if (System.currentTimeMillis() - keepAlive > timeout) {
                         disconnect("Connection Timeout");
                         break;
@@ -301,6 +301,8 @@ public class Connection {
                     }
                 }
             }
+        } catch (SocketException e) {
+            disconnect(e.getClass().getSimpleName() + ": " + e.getMessage());
         } catch (Exception e) {
             for (Listener listener : listeners) {
                 if (!(listener instanceof PacketListener)) continue;
@@ -356,6 +358,8 @@ public class Connection {
                 state = packet.<Handshake>convert().getNextState();
             }
             return true;
+        } catch (SocketException e) {
+            disconnect(e.getClass().getSimpleName() + ": " + e.getMessage());
         } catch (Exception e) {
             if (callback != null) {
                 callback.throwable(e);

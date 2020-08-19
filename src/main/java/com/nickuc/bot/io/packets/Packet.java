@@ -66,6 +66,10 @@ public abstract class Packet {
                 length -= IOUtils.getVarIntSize(dataLength);
             }
 
+            if (length > Short.MAX_VALUE) {
+                throw new InvalidPacketException("Packet too big! " + length);
+            }
+
             byte[] data = new byte[length];
             is.readFully(data);
             if (compressed && dataLength != 0) {
@@ -82,10 +86,10 @@ public abstract class Packet {
                 try {
                     packet.read(in);
                     if (in.dis.available() > 0) {
-                        throw new IllegalArgumentException("Packet " + packet + " cannot be readed fully!");
+                        throw new InvalidPacketException("Packet " + packet + " cannot be readed fully!");
                    }
                 } catch (IOException e) {
-                    throw new IllegalArgumentException("Packet " + packet + " cannot be readed!");
+                    throw new InvalidPacketException("Packet " + packet + " cannot be readed!");
                 }
             } else {
                 packet = new Unknown(packetId);
