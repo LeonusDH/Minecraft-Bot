@@ -12,7 +12,6 @@
 
 package com.nickuc.bot.model;
 
-import com.nickuc.bot.Main;
 import com.nickuc.bot.io.packets.Packet;
 import com.nickuc.bot.io.packets.game.client.KeepAliveResponse;
 import com.nickuc.bot.io.packets.game.server.GameDisconnect;
@@ -37,10 +36,15 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.Socket;
 import java.net.SocketAddress;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.function.Consumer;
 
 public class Connection {
+
+    private static final Timer timer = new Timer();
 
     private final Proxy proxy;
     private final List<Listener> listeners = new ArrayList<>();
@@ -145,7 +149,7 @@ public class Connection {
                 consumer.accept(this);
             }
         };
-        Main.timer.schedule(task, delay);
+        timer.schedule(task, delay);
         return task;
     }
 
@@ -156,7 +160,7 @@ public class Connection {
                 consumer.accept(this);
             }
         };
-        Main.timer.scheduleAtFixedRate(task, initDelay, delay);
+        timer.scheduleAtFixedRate(task, initDelay, delay);
         return task;
     }
 
@@ -185,9 +189,6 @@ public class Connection {
     public void status() throws IOException, InterruptedException, IllegalAccessException {
         if (!isConnected()) {
             throw new IllegalAccessException("Socket is not connected!");
-        }
-        if (state != null) {
-            throw new IllegalStateException("Already requested!");
         }
         prepareListeners(Packet.State.STATUS);
         Handshake handshake = new Handshake(47, server.getAddress().getHostAddress(), server.getPort(), state);
