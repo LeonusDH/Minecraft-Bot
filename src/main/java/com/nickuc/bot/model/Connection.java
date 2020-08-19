@@ -48,9 +48,9 @@ public class Connection {
     private final List<Listener> listeners = new ArrayList<>();
 
     @Getter private Thread thread;
-
     private Socket socket;
     private InetSocketAddress server;
+
     private boolean looping;
     private long throttle;
     private long keepAlive;
@@ -113,6 +113,9 @@ public class Connection {
     }
 
     private void close() throws IOException {
+        if (thread != null && !thread.isInterrupted()) {
+            thread.interrupt();
+        }
         if (socket != null && !socket.isClosed()) {
             socket.close();
         }
