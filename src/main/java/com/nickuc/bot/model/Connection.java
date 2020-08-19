@@ -33,10 +33,7 @@ import lombok.Getter;
 
 import java.io.DataInputStream;
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
-import java.net.Socket;
-import java.net.SocketAddress;
+import java.net.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Timer;
@@ -51,13 +48,17 @@ public class Connection {
     private final List<Listener> listeners = new ArrayList<>();
 
     @Getter private Thread thread;
+
     private Socket socket;
     private InetSocketAddress server;
+    private boolean looping;
+    private long throttle;
+    private long keepAlive;
+    private long timeout;
 
     private String name;
     @Getter private Packet.State state;
     @Getter private int threshold;
-    private boolean looping;
 
     public Connection() {
         this(Proxy.NO_PROXY);
@@ -68,14 +69,16 @@ public class Connection {
     }
 
     public void connect(InetSocketAddress server, Callback<Connection> callback) {
-        connect(server, 7500, callback);
+        connect(server, 7500, 20000, callback);
     }
 
-    public void connect(InetSocketAddress server, int timeout, Callback<Connection> callback) {
+    public void connect(InetSocketAddress server, int connectTimeout, int keepAliveTimeout, Callback<Connection> callback) {
         thread = new Thread(() -> {
             try {
                 socket = new Socket(proxy);
-                socket.connect(this.server = server, timeout);
+                socket.connect(this.server = server, connectTimeout);
+                keepAlive = System.currentTimeMillis();
+                timeout = keepAliveTimeout;
                 callback.success(this);
             } catch (Throwable e) {
                 callback.throwable(e);
@@ -110,9 +113,6 @@ public class Connection {
     }
 
     private void close() throws IOException {
-        if (thread != null && !thread.isInterrupted()) {
-            thread.interrupt();
-        }
         if (socket != null && !socket.isClosed()) {
             socket.close();
         }
@@ -120,7 +120,7 @@ public class Connection {
     }
 
     public boolean isConnected() {
-        return thread != null && !thread.isInterrupted() && socket != null && !socket.isClosed() && socket.isConnected();
+        return socket != null && !socket.isClosed() && socket.isConnected() && thread.isAlive();
     }
 
     public Connection addListener(Listener listener) {
@@ -165,7 +165,7 @@ public class Connection {
         return task;
     }
 
-    public void login(String name) throws IOException, InterruptedException, IllegalAccessException {
+    public void login(String name) throws IllegalAccessException {
         if (!isConnected()) {
             throw new IllegalAccessException("Socket is not connected!");
         }
@@ -183,11 +183,12 @@ public class Connection {
         Handshake handshake = new Handshake(47, server.getAddress().getHostAddress(), server.getPort(), state);
         if (!send(handshake, new LoginStart(name))) {
             disconnect("Failed to send handshake & login start, aborting connection...");
+        } else {
+            socketLoop();
         }
-        packetLoop();
     }
 
-    public void status() throws IOException, InterruptedException, IllegalAccessException {
+    public void status() throws IllegalAccessException {
         if (!isConnected()) {
             throw new IllegalAccessException("Socket is not connected!");
         }
@@ -195,8 +196,9 @@ public class Connection {
         Handshake handshake = new Handshake(47, server.getAddress().getHostAddress(), server.getPort(), state);
         if (!send(handshake, new StatusRequest())) {
             disconnect("Failed to send handshake & status request, aborting connection...");
+        } else {
+            socketLoop();
         }
-        packetLoop();
     }
 
     private void prepareListeners(Packet.State state) {
@@ -257,28 +259,34 @@ public class Connection {
         }
     }
 
-    public void packetLoop() throws IOException, InterruptedException {
+    public void socketLoop() {
         if (looping) {
             throw new IllegalStateException("Already in loop!");
         }
         looping = true;
-        DataInputStream input = new DataInputStream(socket.getInputStream());
-        while (isConnected()) {
-            if (!receive(input)) {
-                break;
+        try {
+            DataInputStream input = new DataInputStream(socket.getInputStream());
+            while (isConnected()) {
+                long current = System.currentTimeMillis();
+                if (current - throttle >= 25) {
+                    if (System.currentTimeMillis() - keepAlive > timeout) {
+                        disconnect("Connection Timeout");
+                        break;
+                    }
+                    receive(input);
+                    throttle = current;
+                }
             }
-            Thread.sleep(25);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
-    private boolean receive(DataInputStream in) {
+    private void receive(DataInputStream in) {
         Packet packet = null;
         try {
-            if (thread != null) {
-                if (!thread.isAlive() || thread.isInterrupted()) return false;
-            }
-
-            if (in.available() > 0 && isConnected()) {
+            if (in.available() > 0) {
+                keepAlive = System.currentTimeMillis();
                 packet = Packet.read(in, state, threshold);
                 for (Listener listener : listeners) {
                     if (!(listener instanceof PacketListener)) continue;
@@ -301,7 +309,6 @@ public class Connection {
                 }
             }
         }
-        return true;
     }
 
     public boolean send(Packet packet) {
@@ -325,31 +332,27 @@ public class Connection {
     }
 
     public boolean send(Packet packet, Callback<Connection> callback) {
+        if (!isConnected()) return false;
+
         try {
-            if (thread != null) {
-                if (!thread.isAlive() || thread.isInterrupted()) return false;
-            }
+            for (Listener listener : listeners) {
+                if (!(listener instanceof PacketListener)) continue;
 
-            if (isConnected()) {
-                for (Listener listener : listeners) {
-                    if (!(listener instanceof PacketListener)) continue;
-
-                    try {
-                        ((PacketListener) listener).send(this, packet);
-                    } catch (Exception e) {
-                        err("[WRITE] Failed to notify packet listener: " + e.getMessage() + " - [Packet: " + packet + ", Listener: " + listener.getClass().getSimpleName() + "].");
-                    }
+                try {
+                    ((PacketListener) listener).send(this, packet);
+                } catch (Exception e) {
+                    err("[WRITE] Failed to notify packet listener: " + e.getMessage() + " - [Packet: " + packet + ", Listener: " + listener.getClass().getSimpleName() + "].");
                 }
-                packet.prepare(threshold);
-                socket.getOutputStream().write(packet.buf);
-                if (callback != null) {
-                    callback.success(this);
-                }
-                if (packet instanceof Handshake && (state == null || state == Packet.State.HANDSHAKING)) {
-                    state = packet.<Handshake>convert().getNextState();
-                }
-                return true;
             }
+            packet.prepare(threshold);
+            socket.getOutputStream().write(packet.buf);
+            if (callback != null) {
+                callback.success(this);
+            }
+            if (packet instanceof Handshake && (state == null || state == Packet.State.HANDSHAKING)) {
+                state = packet.<Handshake>convert().getNextState();
+            }
+            return true;
         } catch (Exception e) {
             if (callback != null) {
                 callback.throwable(e);

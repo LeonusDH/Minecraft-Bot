@@ -32,7 +32,7 @@ public class Main {
     public static void main(String[] args) {
 
         //File file = new File("/home/nickuc/Área de Trabalho/proxies.txt");
-        InetSocketAddress server = new InetSocketAddress("142.44.215.25", 10000);
+        InetSocketAddress server = new InetSocketAddress("127.0.0.1", 25578);
 
         Connection connection = new Connection();
         connection.addListener(new PacketListener() {
@@ -41,6 +41,8 @@ public class Main {
 
                 if (packet instanceof Packet.Unknown) {
                     connection.print(Color.ANSI_RED + "Pacote desconhecido, id: 0x" + Integer.toHexString(packet.<Packet.Unknown>convert().id) + ", state: " + connection.getState());
+                } else {
+                    connection.print(Color.ANSI_GREEN + "Pacote recebido: " + packet);
                 }
 
                 if (packet instanceof LoginSuccess) {
@@ -51,12 +53,30 @@ public class Main {
             }
         });
 
-        connection.connect(server, 8000, new Callback<Connection>() {
+        connection.connect(server, 8000, 15000, new Callback<Connection>() {
             @Override
             public void success() {
                 try {
                     System.out.println("Connected.");
                     connection.login("NickBot");
+
+                    new Thread(() -> {
+                        while (true) {
+                            if (!connection.isConnected()) {
+                                System.exit(1);
+                                break;
+                            } else {
+                                try {
+                                    Thread.sleep(1000);
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                                System.out.println(connection.isConnected() + " " + connection);
+                            }
+                        }
+                    }).start();
+
+
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

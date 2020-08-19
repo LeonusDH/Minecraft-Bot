@@ -88,7 +88,7 @@ public abstract class Packet {
                     throw new IllegalArgumentException("Packet " + packet + " cannot be readed!");
                 }
             } else {
-                packet = new Unknown(packetId, data);
+                packet = new Unknown(packetId);
             }
             return packet;
         } finally {
@@ -186,9 +186,8 @@ public abstract class Packet {
 
         public final int id;
 
-        Unknown(int id, byte[] buf) {
+        Unknown(int id) {
             this.id = id;
-            super.buf = buf;
         }
 
         @Override
@@ -255,7 +254,7 @@ public abstract class Packet {
         }
 
         static Optional<Data> search(Class<? extends Packet> clasz) {
-            DirectionData directionData = clasz.getPackage().getName().contains("client") ? DirectionData.TO_CLIENT : DirectionData.TO_SERVER;
+            DirectionData directionData = clasz.getPackage().getName().contains("client") || clasz.isAssignableFrom(Handshake.class) ? DirectionData.TO_SERVER : DirectionData.TO_CLIENT;
             return directionData.packetMap().values().stream().filter(tmpData -> tmpData.clasz.isAssignableFrom(clasz)).findFirst();
         }
 
@@ -280,7 +279,5 @@ public abstract class Packet {
             public final Class<? extends Packet> clasz;
 
         }
-
     }
-
 }
