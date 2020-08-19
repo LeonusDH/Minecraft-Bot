@@ -18,7 +18,10 @@ import com.nickuc.bot.io.buf.OutputBuffer;
 import com.nickuc.bot.io.packets.game.client.*;
 import com.nickuc.bot.io.packets.game.client.inventory.ClickInventory;
 import com.nickuc.bot.io.packets.game.client.inventory.CloseInventory;
-import com.nickuc.bot.io.packets.game.server.*;
+import com.nickuc.bot.io.packets.game.server.GameDisconnect;
+import com.nickuc.bot.io.packets.game.server.JoinGame;
+import com.nickuc.bot.io.packets.game.server.KeepAliveRequest;
+import com.nickuc.bot.io.packets.game.server.ServerChatMessage;
 import com.nickuc.bot.io.packets.handshaking.Handshake;
 import com.nickuc.bot.io.packets.login.client.LoginStart;
 import com.nickuc.bot.io.packets.login.server.EncryptionRequest;
@@ -34,9 +37,7 @@ import lombok.Cleanup;
 
 import java.io.DataInputStream;
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.zip.DataFormatException;
 
 public abstract class Packet {
@@ -171,8 +172,14 @@ public abstract class Packet {
     }
 
     public enum DirectionData {
+
         TO_CLIENT,
-        TO_SERVER
+        TO_SERVER;
+
+        public Map<String, Mapping.Data> packetMap() {
+            return this == TO_CLIENT ? Mapping.TO_CLIENT : Mapping.TO_SERVER;
+        }
+
     }
 
     public static class Unknown extends Packet {
@@ -198,7 +205,7 @@ public abstract class Packet {
 
     public static class Mapping {
 
-        private static final Set<Data> packetMap = new HashSet<>();
+        private static final HashMap<String, Data> TO_CLIENT = new HashMap<>(), TO_SERVER = new HashMap<>();
 
         static {
 
@@ -240,24 +247,26 @@ public abstract class Packet {
             registerPacket(0x16, State.GAME, DirectionData.TO_SERVER, ClientStatus.class);
             registerPacket(0x17, State.GAME, DirectionData.TO_SERVER, PluginMessage.class);
             registerPacket(0x19, State.GAME, DirectionData.TO_SERVER, ResourcePackStatus.class);
+
         }
 
-        static void registerPacket(int packetId, State state, DirectionData directionData, Class<? extends Packet> clasz) {
-            packetMap.add(new Data(packetId, state, directionData, clasz));
+        static void registerPacket(int packetId, State state, DirectionData direction, Class<? extends Packet> clasz) {
+            direction.packetMap().put(state.id + "." + packetId, new Data(packetId, clasz));
         }
 
         static Optional<Data> search(Class<? extends Packet> clasz) {
-            return packetMap.stream().filter(tmpData -> tmpData.clasz.isAssignableFrom(clasz)).findFirst();
+            DirectionData directionData = clasz.getPackage().getName().contains("client") ? DirectionData.TO_CLIENT : DirectionData.TO_SERVER;
+            return directionData.packetMap().values().stream().filter(tmpData -> tmpData.clasz.isAssignableFrom(clasz)).findFirst();
         }
 
-        static Optional<Packet> search(State state, DirectionData directionData, int packetId) {
-            Optional<Data> data = packetMap.stream().filter(tmpData -> tmpData.state == state && tmpData.direction == directionData && tmpData.id == packetId).findFirst();
-            return data.isPresent() ? newPacket(data.get()) : Optional.empty();
+        static Optional<Packet> search(State state, DirectionData direction, int packetId) {
+            Data data = direction.packetMap().get(state.id + "." + packetId);
+            return data != null ? newPacket(data.clasz) : Optional.empty();
         }
 
-        private static Optional<Packet> newPacket(Data data) {
+        private static Optional<Packet> newPacket(Class<? extends Packet> clasz) {
             try {
-                return Optional.of(data.clasz.newInstance());
+                return Optional.of(clasz.newInstance());
             } catch (IllegalAccessException | InstantiationException e) {
                 e.printStackTrace();
             }
@@ -268,8 +277,6 @@ public abstract class Packet {
         public static class Data {
 
             public final int id;
-            public final State state;
-            public final DirectionData direction;
             public final Class<? extends Packet> clasz;
 
         }
