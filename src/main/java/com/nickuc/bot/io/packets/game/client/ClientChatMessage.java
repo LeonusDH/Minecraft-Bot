@@ -34,7 +34,7 @@ public class ClientChatMessage extends Packet {
 
     @Override
     public void write(OutputBuffer out) throws IOException {
-        out.writeString(message);
+        out.writeString(message.length() > 100 ? message.substring(0, 100) : message);
     }
 
 }

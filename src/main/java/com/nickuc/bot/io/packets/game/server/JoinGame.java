@@ -36,10 +36,10 @@ public class JoinGame extends Packet {
     @Override
     public void read(InputBuffer in) throws IOException {
         entityID = in.readInt();
-        gameMode = in.readUByte();
+        gameMode = in.readUnsignedByte();
         dimension = in.readByte();
-        difficulty = in.readUByte();
-        maxPlayers = in.readUByte();
+        difficulty = in.readUnsignedByte();
+        maxPlayers = in.readUnsignedByte();
         levelType = in.readString();
         reducedInfo = in.readBoolean();
     }
@@ -47,10 +47,10 @@ public class JoinGame extends Packet {
     @Override
     public void write(OutputBuffer out) throws IOException {
         out.writeVarInt(entityID);
-        out.writeUByte(gameMode);
-        out.writeUByte(dimension);
-        out.writeUByte(difficulty);
-        out.writeUByte(maxPlayers);
+        out.writeUnsignedByte(gameMode);
+        out.writeUnsignedByte(dimension);
+        out.writeUnsignedByte(difficulty);
+        out.writeUnsignedByte(maxPlayers);
         out.writeString(levelType);
         out.writeBoolean(reducedInfo);
     }

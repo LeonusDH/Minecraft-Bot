@@ -45,7 +45,11 @@ public class InputBuffer extends IOUtils implements Closeable {
         return dis.readInt();
     }
 
-    public int readUByte() throws IOException {
+    public float readFloat() throws IOException {
+        return dis.readFloat();
+    }
+
+    public int readUnsignedByte() throws IOException {
         return dis.readByte() & 0xFF;
     }
 

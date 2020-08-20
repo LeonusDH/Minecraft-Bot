@@ -29,11 +29,11 @@ public class CloseInventory extends Packet {
 
     @Override
     protected void read(InputBuffer in) throws IOException {
-        windowId = in.readUByte();
+        windowId = in.readUnsignedByte();
     }
 
     @Override
     protected void write(OutputBuffer out) throws IOException {
-        out.writeUByte(windowId);
+        out.writeUnsignedByte(windowId);
     }
 }

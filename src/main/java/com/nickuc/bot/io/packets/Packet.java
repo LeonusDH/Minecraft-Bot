@@ -18,10 +18,7 @@ import com.nickuc.bot.io.buf.OutputBuffer;
 import com.nickuc.bot.io.packets.game.client.*;
 import com.nickuc.bot.io.packets.game.client.inventory.ClickInventory;
 import com.nickuc.bot.io.packets.game.client.inventory.CloseInventory;
-import com.nickuc.bot.io.packets.game.server.GameDisconnect;
-import com.nickuc.bot.io.packets.game.server.JoinGame;
-import com.nickuc.bot.io.packets.game.server.KeepAliveRequest;
-import com.nickuc.bot.io.packets.game.server.ServerChatMessage;
+import com.nickuc.bot.io.packets.game.server.*;
 import com.nickuc.bot.io.packets.handshaking.Handshake;
 import com.nickuc.bot.io.packets.login.client.LoginStart;
 import com.nickuc.bot.io.packets.login.server.EncryptionRequest;
@@ -237,12 +234,14 @@ public abstract class Packet {
             registerPacket(0x0, State.GAME, DirectionData.TO_CLIENT, KeepAliveRequest.class);
             registerPacket(0x1, State.GAME, DirectionData.TO_CLIENT, JoinGame.class);
             registerPacket(0x2, State.GAME, DirectionData.TO_CLIENT, ServerChatMessage.class);
+            registerPacket(0x6, State.GAME, DirectionData.TO_CLIENT, UpdateHealth.class);
             registerPacket(0x40, State.GAME, DirectionData.TO_CLIENT, GameDisconnect.class);
 
             registerPacket(0x0, State.GAME, DirectionData.TO_SERVER, KeepAliveResponse.class);
             registerPacket(0x1, State.GAME, DirectionData.TO_SERVER, ClientChatMessage.class);
             registerPacket(0x3, State.GAME, DirectionData.TO_SERVER, PlayerPosition.class);
             registerPacket(0x9, State.GAME, DirectionData.TO_SERVER, HeldItemChange.class);
+            registerPacket(0x0A, State.GAME, DirectionData.TO_SERVER, ArmAnimation.class);
             registerPacket(0x0D, State.GAME, DirectionData.TO_SERVER, CloseInventory.class);
             registerPacket(0x0E, State.GAME, DirectionData.TO_SERVER, ClickInventory.class);
             registerPacket(0x14, State.GAME, DirectionData.TO_SERVER, TabComplete.class);

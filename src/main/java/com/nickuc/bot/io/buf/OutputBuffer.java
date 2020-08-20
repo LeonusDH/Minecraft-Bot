@@ -13,7 +13,6 @@
 package com.nickuc.bot.io.buf;
 
 import com.nickuc.bot.io.IOUtils;
-import lombok.RequiredArgsConstructor;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -21,7 +20,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.UUID;
 
-@RequiredArgsConstructor
 public class OutputBuffer extends IOUtils implements Closeable {
 
     public final ByteArrayOutputStream baos;
@@ -47,13 +45,17 @@ public class OutputBuffer extends IOUtils implements Closeable {
         dos.writeBoolean(val);
     }
 
-    public void writeUByte(int val) throws IOException
+    public void writeUnsignedByte(int val) throws IOException
     {
         dos.writeByte(val);
     }
 
     public void writeVarInt(int value) throws IOException {
         writeVarInt(value, dos);
+    }
+
+    public void writeFloat(float value) throws IOException {
+        dos.writeFloat(value);
     }
 
     public void writeArray(byte[] b) throws IOException {

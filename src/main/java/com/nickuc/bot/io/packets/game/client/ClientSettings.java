@@ -34,7 +34,7 @@ public class ClientSettings extends Packet {
         viewDistance = in.readByte();
         chatMode = ChatMode.search(in.readByte());
         chatColors = in.readBoolean();
-        skinParts = SkinParts.search(in.readUByte());
+        skinParts = SkinParts.search(in.readUnsignedByte());
     }
 
     @Override
@@ -43,7 +43,7 @@ public class ClientSettings extends Packet {
         out.writeByte(viewDistance);
         out.writeByte((byte) chatMode.id);
         out.writeBoolean(chatColors);
-        out.writeUByte(skinParts.id);
+        out.writeUnsignedByte(skinParts.id);
     }
 
     @RequiredArgsConstructor
